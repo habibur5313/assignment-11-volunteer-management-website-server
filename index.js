@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -23,22 +23,50 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
-const VolunteerNeedCollection = client.db("volunteersDB").collection("volunteers");
-app.get('/addVolunteerNeedPost',async(req,res) => {
-  const result = await VolunteerNeedCollection.find().toArray()
-  res.send(result) 
-})
+    const VolunteerNeedCollection = client
+      .db("volunteersDB")
+      .collection("volunteers");
+    app.get("/addVolunteerNeedPost", async (req, res) => {
+      const result = await VolunteerNeedCollection.find().toArray();
+      res.send(result);
+    });
+    app.get("/addVolunteerNeedPost/:id", async (req, res) => {
+      const id = req.params.id;
+      const cursor = { _id: new ObjectId(id) };
+      const result = await VolunteerNeedCollection.findOne(cursor);
+      res.send(result);
+    });
 
-app.post('/addVolunteerNeedPost',async(req,res) => {
-const post = req.body;
-const result = await VolunteerNeedCollection.insertOne(post)
-res.send(result)
+    app.get("/volunteerNeedPostSort", async (req, res) => {
+      const sortItem = { Date: -1 };
+      const result = await VolunteerNeedCollection.find()
+        .sort(sortItem)
+        .limit(6)
+        .toArray();
+      res.send(result);
+    });
 
-})
+    app.get("/search", async (req, res) => {
+      const search = req.query.search;
+      let options = {};
+      let cursor = {
+        postTitle: {
+          $regex: search,
+          $options: "i",
+        },
+      };
+      const result = await VolunteerNeedCollection.find(
+        cursor,
+        options
+      ).toArray();
+      res.send(result);
+    });
 
-
-
-
+    app.post("/addVolunteerNeedPost", async (req, res) => {
+      const post = req.body;
+      const result = await VolunteerNeedCollection.insertOne(post);
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -59,4 +87,3 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log("server is running");
 });
-
