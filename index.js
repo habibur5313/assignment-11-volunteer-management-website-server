@@ -21,8 +21,6 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
     const VolunteerNeedCollection = client
       .db("volunteersDB")
       .collection("volunteers");
@@ -38,7 +36,7 @@ async function run() {
     });
 
     app.get("/volunteerNeedPostSort", async (req, res) => {
-      const sortItem = { Date: -1 };
+      const sortItem = { Date: 1 };
       const result = await VolunteerNeedCollection.find()
         .sort(sortItem)
         .limit(6)
@@ -62,11 +60,42 @@ async function run() {
       res.send(result);
     });
 
+    app.get('/myVolunteerNeedPosts/:email',async(req,res) => {
+      const email = req.params.email;
+      const query = {
+        organizerEmail: email}
+        const result = await VolunteerNeedCollection.find(query).toArray()
+        res.send(result)
+    })
+
     app.post("/addVolunteerNeedPost", async (req, res) => {
       const post = req.body;
       const result = await VolunteerNeedCollection.insertOne(post);
       res.send(result);
     });
+
+    app.patch("/posts/update/:id",async(req,res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: req.body,
+      };
+      const result = await VolunteerNeedCollection.updateOne(
+        query,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    })
+
+    app.delete('/myPostDelete/:id',async(req,res) => {
+const id = req.params.id;
+const query  = {_id: new ObjectId(id)}
+const result = await VolunteerNeedCollection.deleteOne(query)
+res.send(result)
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
