@@ -54,6 +54,9 @@ async function run() {
     const VolunteerNeedCollection = client
       .db("volunteersDB")
       .collection("volunteers");
+    const VolunteerRequestCollection = client
+      .db("volunteersDB")
+      .collection("volunteerRequest");
 
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -154,6 +157,56 @@ return res.status(403).send("forbidden");
       res.send(result);
     });
 
+    // request post apis
+app.get('/postRequest',async(req,res) => {
+  const result = await VolunteerRequestCollection.find().toArray()
+  res.send(result)
+})
+
+app.get('/postRequest/:id',async(req,res) => {
+  const id = req.params.id;
+  const post = {_id: new ObjectId(id)}
+  const result = await VolunteerRequestCollection.findOne(post)
+  res.send(result)
+})
+
+app.get("/myVolunteerRequestPosts/:email", verifyToken, async (req, res) => {
+  const email = req.params.email;
+  if(req.user.user.email !== email){
+return res.status(403).send("forbidden");
+  }
+  const query = {
+    userEmail: email,
+  };
+  const result = await VolunteerRequestCollection.find(query).toArray();
+  res.send(result);
+});
+    app.post('/postRequest',async(req,res) => {
+      const post = req.body;
+      const query = { userEmail: post.userEmail, postId: post.postId }
+      const alreadyExist = await VolunteerRequestCollection.findOne(query)
+      if (alreadyExist)
+        return res
+          .status(400)
+          .send('You have already placed a bid on this job!')
+      
+      const result = await VolunteerRequestCollection.insertOne(post)
+    const filter = {_id: new ObjectId(post.postId)}
+   const update = {
+        $inc: { volunteerNeeded: -1 },
+      }
+      const updateRequestCount = await VolunteerNeedCollection.updateOne(filter,update)
+
+      res.send(result)
+    })
+  
+
+    app.delete("/myPostRequestDelete/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await VolunteerRequestCollection.deleteOne(query);
+      res.send(result);
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
