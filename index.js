@@ -10,7 +10,8 @@ const port = process.env.PORT || 5000;
 app.use(express.json());
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: ['http://localhost:5173',
+     'https://goofy-letter.surge.sh'],
     credentials: true,
   })
 );
@@ -18,27 +19,22 @@ app.use(cookieParser());
 
 const verifyToken = (req, res, next) => {
   const token = req?.cookies?.token;
-  
+
   if (!token) {
     return res.status(401).send({ message: "Unauthorized userdsfa" });
   }
 
-  jwt.verify(
-    token,
-    process.env.DB_SECURE,
-    (err, decoded) => {
-      if (err) {
-        return res.status(401).send({ message: "Unauthorized user" });
-      }
-      req.user = decoded;
-
-      
-      next();
+  jwt.verify(token, process.env.DB_SECURE, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "Unauthorized user" });
     }
-  );
+    req.user = decoded;
+
+    next();
+  });
 };
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.iosi8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+const uri = `mongodb+srv://${process.env.DB_User}:${process.env.DB_Pass}@cluster0.iosi8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -57,9 +53,16 @@ async function run() {
     const VolunteerRequestCollection = client
       .db("volunteersDB")
       .collection("volunteerRequest");
-
+      const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      };
+      //localhost:5000 and localhost:5173 are treated as same site.  so sameSite value must be strict in development server.  in production sameSite will be none
+      // in development server secure will false .  in production secure will be true
     app.post("/jwt", async (req, res) => {
       const user = req.body;
+
       const token = jwt.sign(
         {
           user,
@@ -67,17 +70,15 @@ async function run() {
         process.env.DB_SECURE,
         { expiresIn: "5d" }
       );
-
-      res.cookie("token", token, { httpOnly: true,      secure: false }); // http only localhost
-      res.status(200).send("Logged in successfully");
+      // secure: false
+      res.cookie("token", token, cookieOptions).send({ success: true });
+      // res.status(200).send("Logged in successfully");
     });
 
     app.post("/logout", (req, res) => {
-      res.clearCookie("token", {
-        httpOnly: true,
-        secure: false,
-      });
-      res.status(200).send("LogOut successfully");
+      res
+    .clearCookie("token", { ...cookieOptions, maxAge: 0 })
+    .send({ success: true });
     });
 
     app.get("/addVolunteerNeedPost", async (req, res) => {
@@ -118,8 +119,8 @@ async function run() {
 
     app.get("/myVolunteerNeedPosts/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
-      if(req.user.user.email !== email){
-return res.status(403).send("forbidden");
+      if (req.user.user.email !== email) {
+        return res.status(403).send("forbidden");
       }
       const query = {
         organizerEmail: email,
@@ -158,48 +159,54 @@ return res.status(403).send("forbidden");
     });
 
     // request post apis
-app.get('/postRequest',async(req,res) => {
-  const result = await VolunteerRequestCollection.find().toArray()
-  res.send(result)
-})
+    app.get("/postRequest", async (req, res) => {
+      const result = await VolunteerRequestCollection.find().toArray();
+      res.send(result);
+    });
 
-app.get('/postRequest/:id',async(req,res) => {
-  const id = req.params.id;
-  const post = {_id: new ObjectId(id)}
-  const result = await VolunteerRequestCollection.findOne(post)
-  res.send(result)
-})
+    app.get("/postRequest/:id", async (req, res) => {
+      const id = req.params.id;
+      const post = { _id: new ObjectId(id) };
+      const result = await VolunteerRequestCollection.findOne(post);
+      res.send(result);
+    });
 
-app.get("/myVolunteerRequestPosts/:email", verifyToken, async (req, res) => {
-  const email = req.params.email;
-  if(req.user.user.email !== email){
-return res.status(403).send("forbidden");
-  }
-  const query = {
-    userEmail: email,
-  };
-  const result = await VolunteerRequestCollection.find(query).toArray();
-  res.send(result);
-});
-    app.post('/postRequest',async(req,res) => {
+    app.get(
+      "/myVolunteerRequestPosts/:email",
+      verifyToken,
+      async (req, res) => {
+        const email = req.params.email;
+        if (req.user.user.email !== email) {
+          return res.status(403).send("forbidden");
+        }
+        const query = {
+          userEmail: email,
+        };
+        const result = await VolunteerRequestCollection.find(query).toArray();
+        res.send(result);
+      }
+    );
+    app.post("/postRequest", async (req, res) => {
       const post = req.body;
-      const query = { userEmail: post.userEmail, postId: post.postId }
-      const alreadyExist = await VolunteerRequestCollection.findOne(query)
+      const query = { userEmail: post.userEmail, postId: post.postId };
+      const alreadyExist = await VolunteerRequestCollection.findOne(query);
       if (alreadyExist)
         return res
           .status(400)
-          .send('You have already placed a bid on this job!')
-      
-      const result = await VolunteerRequestCollection.insertOne(post)
-    const filter = {_id: new ObjectId(post.postId)}
-   const update = {
-        $inc: { volunteerNeeded: -1 },
-      }
-      const updateRequestCount = await VolunteerNeedCollection.updateOne(filter,update)
+          .send("You have already placed a bid on this job!");
 
-      res.send(result)
-    })
-  
+      const result = await VolunteerRequestCollection.insertOne(post);
+      const filter = { _id: new ObjectId(post.postId) };
+      const update = {
+        $inc: { volunteerNeeded: -1 },
+      };
+      const updateRequestCount = await VolunteerNeedCollection.updateOne(
+        filter,
+        update
+      );
+
+      res.send(result);
+    });
 
     app.delete("/myPostRequestDelete/:id", async (req, res) => {
       const id = req.params.id;
@@ -208,10 +215,10 @@ return res.status(403).send("forbidden");
       res.send(result);
     });
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     //     await client.close();
