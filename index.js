@@ -11,8 +11,7 @@ app.use(express.json());
 app.use(
   cors({
     origin: ['http://localhost:5173',
-     'https://goofy-letter.surge.sh',
-     'https://volunteer-network-simple-website.surge.sh'],
+     'https://volunteer-network-simple-website-nepn8pub0.vercel.app',],
     credentials: true,
   })
 );
@@ -22,7 +21,7 @@ const verifyToken = (req, res, next) => {
   const token = req?.cookies?.token;
 
   if (!token) {
-    return res.status(401).send({ message: "Unauthorized userdsfa" });
+    return res.status(401).send({ message: "Unauthorized user" });
   }
 
   jwt.verify(token, process.env.DB_SECURE, (err, decoded) => {
