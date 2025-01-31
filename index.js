@@ -11,7 +11,8 @@ app.use(express.json());
 app.use(
   cors({
     origin: ['http://localhost:5173',
-     'https://goofy-letter.surge.sh'],
+     'https://goofy-letter.surge.sh',
+     'https://volunteer-network-simple-website.surge.sh'],
     credentials: true,
   })
 );
@@ -96,7 +97,7 @@ async function run() {
       const sortItem = { Date: 1 };
       const result = await VolunteerNeedCollection.find()
         .sort(sortItem)
-        .limit(6)
+        .limit(8)
         .toArray();
       res.send(result);
     });
