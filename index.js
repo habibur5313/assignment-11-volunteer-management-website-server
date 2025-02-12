@@ -11,7 +11,8 @@ app.use(express.json());
 app.use(
   cors({
     origin: ['http://localhost:5173',
-     'https://volunteer-network-simple-website-nepn8pub0.vercel.app',],
+     'https://volunteer-network-simple-website-nepn8pub0.vercel.app',
+      'https://volunteer-network-simple-website.surge.sh'],
     credentials: true,
   })
 );
@@ -116,6 +117,29 @@ async function run() {
       ).toArray();
       res.send(result);
     });
+
+    app.get('/volunteers/:sort',async(req,res) => {
+      const sort = req.params.sort;
+      if(sort === 'sort by volunteer need (Descending)'){
+        const sortItem = { Date: 1 };
+        const result = await VolunteerNeedCollection.find()
+          .sort(sortItem)
+          .toArray();
+        res.send(result);
+      }
+      else if(sort === 'sort by date (Descending)'){
+        const sortItem = { volunteerNeeded: -1 };
+        const result = await VolunteerNeedCollection.find()
+          .sort(sortItem)
+          .toArray();
+        res.send(result);
+      }
+      else{
+        const result = await VolunteerNeedCollection.find().toArray();
+      res.send(result);
+      }
+
+    })
 
     app.get("/myVolunteerNeedPosts/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
